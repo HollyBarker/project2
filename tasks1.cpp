@@ -2,6 +2,7 @@
 #include<vector>
 #include<algorithm>
 #include<cmath>
+#include<fstream>
 
 
 class AdvectionElement
@@ -31,8 +32,8 @@ public:
 	U[0]=u_0; U[1]=u_1;
 	}
 	// Returns linear approximation for x(s) and u(s) for any point within the element
-	double interpolated_x(double s) {return X[0]*(1/2*(1-s))+X[1]*(1/2*(1+s));}
-	double interpolated_u(double s) {return U[0]*(1/2*(1-s))+U[1]*(1/2*(1+s));}
+	double interpolated_x(double s) {return X[0]*(1.0/2.0*(1.0-s))+X[1]*(1.0/2.0*(1.0+s));}
+	double interpolated_u(double s) {return U[0]*(1.0/2.0*(1.0-s))+U[1]*(1.0/2.0*(1.0+s));}
 }; //End of the class definition
 
 int main()
@@ -68,12 +69,14 @@ int main()
 
 	*/
 
-	AdvectionElement zeroth(0,0,0,0), first(1,1,1,1), second(2,2,2,2);
+	std::ofstream dataFile;
+	dataFile.open("elementData.txt");
+	if (!dataFile) return 1;
+	
 	static const double pi=3.1415926535897932384626433832795;
 	double domain_start=0.0, domain_end=2*pi;
-	int no_elements=10;
+	int no_elements=100;
 	double element_length=(domain_end-domain_start)/no_elements;
-	//AdvectionElement element_array [3] ={zeroth,first,second};
 
 	double x_0, x_1, u_0, u_1;
 	std::vector<AdvectionElement> element_array(no_elements);
@@ -81,10 +84,12 @@ int main()
 	{
 		x_0=domain_start+i*element_length;
 		x_1=x_1+element_length;
-		u_0=1.5*std::sin(x_0);
-		u_1=1.5*std::sin(x_1);
+		u_0=1.5+std::sin(x_0);
+		u_1=1.5+std::sin(x_1);
 		AdvectionElement AE(x_0,x_1,u_0,u_1);
 		element_array[i]=AE;
+		dataFile.width(15); dataFile<<AE.interpolated_x(0);
+		dataFile.width(15); dataFile<<AE.interpolated_u(0)<<std::endl;
 	}
 	element_array[0].Right_neighbour_pt=&element_array[1];
 	element_array[no_elements-1].Left_neighbour_pt=&element_array[no_elements-2];
@@ -92,6 +97,7 @@ int main()
 	{
 		element_array[i].Left_neighbour_pt=&element_array[i-1];
 		element_array[i].Right_neighbour_pt=&element_array[i+1];
+
 	}
 	return 0;
 }
