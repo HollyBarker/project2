@@ -3,7 +3,8 @@
 #include<algorithm>
 #include<cmath>
 #include<fstream>
-
+#include "MMatrix.h"
+#include "MVector.h"
 
 class AdvectionElement
 {
@@ -34,6 +35,45 @@ public:
 	// Returns linear approximation for x(s) and u(s) for any point within the element
 	double interpolated_x(double s) {return X[0]*(1.0/2.0*(1.0-s))+X[1]*(1.0/2.0*(1.0+s));}
 	double interpolated_u(double s) {return U[0]*(1.0/2.0*(1.0-s))+U[1]*(1.0/2.0*(1.0+s));}
+	// Calculate the flux
+	virtual double flux(double u)
+	{
+		double C=1;
+		return C*u;
+	}
+	// Calculate the integral of the flux function over the element
+	// using the two-point Gauss rule
+	double integrate_flux()
+	{
+		double gauss_u1=interpolated_u(-std::sqrt(1.0/3.0));
+		double gauss_u2=interpolated_u(std::sqrt(1.0/3.0));
+		return flux(gauss_u1)+flux(gauss_u2);
+	}
+	virtual double h(double a, double b)
+	{
+		//f=Cu so max(f')=C.
+		return (1.0/2.0)*(flux(a)+flux(b))-(b-a); 
+	}
+	void timestep(double dt)
+	{
+		//Construct MMatrix object for (M^e)^{-1}
+		MMatrix invM(2,2,-2); 
+		invM(0,0)=4; invM(1,1)=4; 
+		invM=(X[1]-X[0])*invM; 
+		
+		//Construct MVector object for F^e
+		MVector F(2);
+		F[0]=-1; F[1]=1;
+		F=(1.0/2.0)*integrate_flux()*F;
+
+		//Construct MVector object for H^e
+		MVector H(2);
+		double U1em1=Left_neighbour_pt->U[1]; //u_1^{e-1}
+		double U0ep1=Right_neighbour_pt->U[0];//u_0^{e+1}
+		H[0]=h(U1em1,U[0]);
+		H[1]=-h(U[1],U0ep1);
+	}
+	//FILL THIS IN
 }; //End of the class definition
 
 int main()
@@ -92,7 +132,9 @@ int main()
 		dataFile.width(15); dataFile<<AE.interpolated_u(0)<<std::endl;
 	}
 	element_array[0].Right_neighbour_pt=&element_array[1];
+	element_array[0].Left_neighbour_pt=&element_array[no_elements-1];
 	element_array[no_elements-1].Left_neighbour_pt=&element_array[no_elements-2];
+	element_array[no_elements-1].Right_neighbour_pt=&element_array[1];
 	for (int i=1; i<no_elements-1; i++)
 	{
 		element_array[i].Left_neighbour_pt=&element_array[i-1];
