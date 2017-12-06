@@ -6,6 +6,8 @@
 #include "MMatrix.h"
 #include "MVector.h"
 
+static const double pi=3.141592653589793;
+
 class AdvectionElement
 {
 friend std::ostream& operator<<(std::ostream& os, const AdvectionElement& AE)
@@ -19,9 +21,9 @@ public:
 	// Pointer to the element's right neighbour
 	AdvectionElement *Right_neighbour_pt;
 	// Vector to store x_0 and x_1
-	std::vector<double> X;
+	MVector X;
 	// Vector to store u_0 and u_1
-	std::vector<double> U;
+	MVector U;
 	// Default constructor
 	AdvectionElement(){} 
 	// Constructor to initialise element with x_0, x_1, u_0, u_1
@@ -72,6 +74,10 @@ public:
 		double U0ep1=Right_neighbour_pt->U[0];//u_0^{e+1}
 		H[0]=h(U1em1,U[0]);
 		H[1]=-h(U[1],U0ep1);
+		if (X[0]<1e-8) H[0]=0;
+		if (X[1]-2*pi<1e-8) H[1]=0;
+		MVector jump=dt*invM*(F+H);
+		U=U+jump;
 	}
 	//FILL THIS IN
 }; //End of the class definition
@@ -110,10 +116,9 @@ int main()
 	*/
 
 	std::ofstream dataFile;
-	dataFile.open("elementData.txt");
+	dataFile.open("initialElementData.txt");
 	if (!dataFile) return 1;
 	
-	static const double pi=3.1415926535897932384626433832795;
 	double domain_start=0.0, domain_end=2*pi;
 	int no_elements=100;
 	double element_length=(domain_end-domain_start)/no_elements;
@@ -139,7 +144,37 @@ int main()
 	{
 		element_array[i].Left_neighbour_pt=&element_array[i-1];
 		element_array[i].Right_neighbour_pt=&element_array[i+1];
+	}
+	
+	//			Perform the timestep
 
+	//Open a new .txt file to save the data
+	std::ofstream dataFile2;
+	dataFile2.open("timesteppedElementData.txt");
+	if (!dataFile2) return 1;
+
+	//Initialises a vector to hold the previous unknowns
+	std::vector<AdvectionElement> hold_element_array(no_elements);
+	int no_timesteps=2;
+	double time=0.0, timestep_length=0.01;
+	for (int j=1; j<=no_timesteps;j++)
+	{
+		time=j*no_timesteps;
+		for (int i=0;i<no_elements;i++)
+		{
+			//Sets holding vector equal to the current values
+			hold_element_array[i]=element_array[i];
+			//Performs the timestep function on each AdvectionElement object
+			element_array[i].timestep(timestep_length);
+			//Increments the AdvectionElement objects with the timestep
+			element_array[i].U=hold_element_array[i].U+element_array[i].U;
+		}
+	}
+	for (int i=1;i<no_elements;i++)
+	{
+		AdvectionElement AE=element_array[i];
+		dataFile2.width(15); dataFile2<<AE.interpolated_x(0);
+		dataFile2.width(15); dataFile2<<AE.interpolated_u(0)<<std::endl;
 	}
 	return 0;
 }
