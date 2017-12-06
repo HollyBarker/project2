@@ -7,7 +7,7 @@
 #include<algorithm>
 #include<fstream>
 #include<string>
-#include "Mvector.h"
+#include "MVector.h"
 
 // Class that represents a mathematical matrix
 class MMatrix
