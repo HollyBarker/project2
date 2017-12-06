@@ -24,13 +24,15 @@ public:
 	MVector X;
 	// Vector to store u_0 and u_1
 	MVector U;
+	// Vector to store the timestep jump
+	MVector timestepped_U;
 	// Default constructor
 	AdvectionElement(){} 
 	// Constructor to initialise element with x_0, x_1, u_0, u_1
 	AdvectionElement(double x_0, double x_1, double u_0, double u_1)
 	{
 	// Provide a size for the vectors and fill the entries from the constructor
-	X.resize(2); U.resize(2);
+	X.resize(2); U.resize(2); timestepped_U.resize(2);
 	X[0]=x_0; X[1]=x_1;
 	U[0]=u_0; U[1]=u_1;
 	}
@@ -47,21 +49,23 @@ public:
 	// using the two-point Gauss rule
 	double integrate_flux()
 	{
-		double gauss_u1=interpolated_u(-std::sqrt(1.0/3.0));
-		double gauss_u2=interpolated_u(std::sqrt(1.0/3.0));
-		return flux(gauss_u1)+flux(gauss_u2);
+		double gauss_u1=interpolated_u(-sqrt(1.0/3.0));
+		double gauss_u2=interpolated_u(sqrt(1.0/3.0)); 
+		return (flux(gauss_u1)+flux(gauss_u2));
 	}
 	virtual double h(double a, double b)
 	{
-		//f=Cu so max(f')=C.
-		return (1.0/2.0)*(flux(a)+flux(b))-(b-a); 
+		//f=Cu so max(f')=C=1.
+		double C=1;
+		return (1.0/2.0)*(flux(a)+flux(b))-(1.0/2.0)*C*(b-a); 
 	}
 	void timestep(double dt)
 	{
 		//Construct MMatrix object for (M^e)^{-1}
 		MMatrix invM(2,2,-2); 
 		invM(0,0)=4; invM(1,1)=4; 
-		invM=(X[1]-X[0])*invM; 
+		invM=(1/(X[1]-X[0]))*invM; 
+		std::cout<<invM<<std::endl;
 		
 		//Construct MVector object for F^e
 		MVector F(2);
@@ -75,9 +79,9 @@ public:
 		H[0]=h(U1em1,U[0]);
 		H[1]=-h(U[1],U0ep1);
 		if (X[0]<1e-8) H[0]=0;
-		if (X[1]-2*pi<1e-8) H[1]=0;
-		MVector jump=dt*invM*(F+H);
-		U=U+jump;
+		if ((X[1]-2*pi)<1e-8) H[1]=0;
+
+		timestepped_U=U+dt*(invM*(F+H));
 	}
 	//FILL THIS IN
 }; //End of the class definition
@@ -155,19 +159,17 @@ int main()
 
 	//Initialises a vector to hold the previous unknowns
 	std::vector<AdvectionElement> hold_element_array(no_elements);
-	int no_timesteps=2;
+	int no_timesteps=10;
 	double time=0.0, timestep_length=0.01;
 	for (int j=1; j<=no_timesteps;j++)
 	{
 		time=j*no_timesteps;
 		for (int i=0;i<no_elements;i++)
 		{
-			//Sets holding vector equal to the current values
-			hold_element_array[i]=element_array[i];
 			//Performs the timestep function on each AdvectionElement object
 			element_array[i].timestep(timestep_length);
 			//Increments the AdvectionElement objects with the timestep
-			element_array[i].U=hold_element_array[i].U+element_array[i].U;
+			element_array[i].U = element_array[i].timestepped_U;
 		}
 	}
 	for (int i=1;i<no_elements;i++)
