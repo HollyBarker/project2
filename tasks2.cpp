@@ -43,7 +43,7 @@ int main()
 	*/
 
 	std::ofstream dataFile;
-	dataFile.open("initialElementData.txt");
+	dataFile.open("initialElementData2.txt");
 	if (!dataFile) return 1;
 	
 
@@ -64,8 +64,10 @@ int main()
 		// Get the start and end coordinates for the element and implement the initial condition
 		x_0=domain_start+i*element_length;
 		x_1=x_0+element_length;
-		u_0=1.5+std::sin(x_0);
-		u_1=1.5+std::sin(x_1);
+		if (x_0<1) u_0=1;
+		else u_0=0;
+		if (x_1<1) u_1=1;
+		else u_1=0;
 
 		// Use the coordinates and initial unknowns to make an AdvectionElement object
 		AdvectionElement AE(x_0,x_1,u_0,u_1);
@@ -95,11 +97,11 @@ int main()
 
 	// Open a new .txt file to save the data
 	std::ofstream dataFile2;
-	dataFile2.open("timesteppedElementData.txt");
+	dataFile2.open("timesteppedElementData2.txt");
 	if (!dataFile2) return 1;
 
 	// Set up variables to track the time 
-	int no_timesteps=1000;
+	int no_timesteps=10;
 	double time=0.0, timestep_length=0.01;
 
 	// Loop over the timesteps
