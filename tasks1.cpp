@@ -65,7 +65,6 @@ public:
 		MMatrix invM(2,2,-2); 
 		invM(0,0)=4; invM(1,1)=4; 
 		invM=(1/(X[1]-X[0]))*invM; 
-		std::cout<<invM<<std::endl;
 		
 		//Construct MVector object for F^e
 		MVector F(2);
@@ -76,10 +75,9 @@ public:
 		MVector H(2);
 		double U1em1=Left_neighbour_pt->U[1]; //u_1^{e-1}
 		double U0ep1=Right_neighbour_pt->U[0];//u_0^{e+1}
+
 		H[0]=h(U1em1,U[0]);
 		H[1]=-h(U[1],U0ep1);
-		if (X[0]<1e-8) H[0]=0;
-		if ((X[1]-2*pi)<1e-8) H[1]=0;
 
 		timestepped_U=U+dt*(invM*(F+H));
 	}
@@ -123,58 +121,89 @@ int main()
 	dataFile.open("initialElementData.txt");
 	if (!dataFile) return 1;
 	
+
+	//			Part 1 :: Problem set up
+
+	// Set up the variables for the domain
 	double domain_start=0.0, domain_end=2*pi;
 	int no_elements=100;
 	double element_length=(domain_end-domain_start)/no_elements;
 
+	// Initialise the AdvectionElement inputs
 	double x_0, x_1, u_0, u_1;
-	std::vector<AdvectionElement> element_array(no_elements);
+	// Initialise a vector of AdvectionElements
+	std::vector<AdvectionElement> element_vector(no_elements);
+	// Loop over the elements
 	for (int i=0; i<no_elements; i++)
 	{
+		// Get the start and end coordinates for the element and implement the initial condition
 		x_0=domain_start+i*element_length;
-		x_1=x_1+element_length;
+		x_1=x_0+element_length;
 		u_0=1.5+std::sin(x_0);
 		u_1=1.5+std::sin(x_1);
+
+		// Use the coordinates and initial unknowns to make an AdvectionElement object
 		AdvectionElement AE(x_0,x_1,u_0,u_1);
-		element_array[i]=AE;
+		// Fill in the vector of elements
+		element_vector[i]=AE;
+		// Write the initial condition for the central point of each element to a file
 		dataFile.width(15); dataFile<<AE.interpolated_x(0);
 		dataFile.width(15); dataFile<<AE.interpolated_u(0)<<std::endl;
 	}
-	element_array[0].Right_neighbour_pt=&element_array[1];
-	element_array[0].Left_neighbour_pt=&element_array[no_elements-1];
-	element_array[no_elements-1].Left_neighbour_pt=&element_array[no_elements-2];
-	element_array[no_elements-1].Right_neighbour_pt=&element_array[1];
+
+	// Assign pointers from the first element to the second element and final element
+	element_vector[0].Right_neighbour_pt=&element_vector[1];
+	element_vector[0].Left_neighbour_pt=&element_vector[no_elements-1];
+	// Assign pointers from the final element to the penultimate element and first element
+	element_vector[no_elements-1].Left_neighbour_pt=&element_vector[no_elements-2];
+	element_vector[no_elements-1].Right_neighbour_pt=&element_vector[0];
+
+	// Assign pointers from the remaining elements to their neighbours 
 	for (int i=1; i<no_elements-1; i++)
 	{
-		element_array[i].Left_neighbour_pt=&element_array[i-1];
-		element_array[i].Right_neighbour_pt=&element_array[i+1];
+		element_vector[i].Left_neighbour_pt=&element_vector[i-1];
+		element_vector[i].Right_neighbour_pt=&element_vector[i+1];
 	}
 	
-	//			Perform the timestep
 
-	//Open a new .txt file to save the data
+	//			Part 2 :: Perform the timestep
+
+	// Open a new .txt file to save the data
 	std::ofstream dataFile2;
 	dataFile2.open("timesteppedElementData.txt");
 	if (!dataFile2) return 1;
 
-	//Initialises a vector to hold the previous unknowns
-	std::vector<AdvectionElement> hold_element_array(no_elements);
-	int no_timesteps=10;
+	// Set up variables to track the time 
+	int no_timesteps=1000;
 	double time=0.0, timestep_length=0.01;
+
+	// Loop over the timesteps
 	for (int j=1; j<=no_timesteps;j++)
 	{
+		// Get the time at this timestep
 		time=j*no_timesteps;
+		// Loop over the elements
+		//std::cout<<element_vector[30].U[0]<<std::endl;
 		for (int i=0;i<no_elements;i++)
 		{
-			//Performs the timestep function on each AdvectionElement object
-			element_array[i].timestep(timestep_length);
-			//Increments the AdvectionElement objects with the timestep
-			element_array[i].U = element_array[i].timestepped_U;
+			// Perform the timestep function on each AdvectionElement object
+			element_vector[i].timestep(timestep_length);
 		}
+		//std::cout<<element_vector[30].U[0]<<std::endl;
+		// Loop over the elements
+		for (int i=0; i<no_elements;i++)
+		{
+			// Update all of the unknowns to their timestepped values AFTER the timestep has been calculated for each element
+			element_vector[i].U = element_vector[i].timestepped_U;
+		}
+		//std::cout<<"updated"<<element_vector[30].U[0]<<std::endl;
 	}
+	
+	// Loop over the elements
 	for (int i=1;i<no_elements;i++)
 	{
-		AdvectionElement AE=element_array[i];
+		// Write the AdvectionElement data to a file
+		AdvectionElement AE=element_vector[i];
 		dataFile2.width(15); dataFile2<<AE.interpolated_x(0);
 		dataFile2.width(15); dataFile2<<AE.interpolated_u(0)<<std::endl;
 	}
